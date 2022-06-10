@@ -54,7 +54,7 @@ static struct
 #ifndef TREMOR
    int (*ov_open_callbacks)(void *, OggVorbis_File *, const char *, long, ov_callbacks);
    double (*ov_time_total)(OggVorbis_File *, int);
-   int (*ov_time_seek_lap)(OggVorbis_File *, double);
+   int (*ov_time_seek)(OggVorbis_File *, double);
    double (*ov_time_tell)(OggVorbis_File *);
    long (*ov_read)(OggVorbis_File *, char *, int, int, int, int, int *);
 #else
@@ -119,17 +119,10 @@ static bool init_dynlib(void)
    INITSYM(ov_open_callbacks);
    INITSYM(ov_pcm_total);
    INITSYM(ov_info);
-#ifndef TREMOR
-   INITSYM(ov_time_total);
-   INITSYM(ov_time_seek_lap);
-   INITSYM(ov_time_tell);
-   INITSYM(ov_read);
-#else
    INITSYM(ov_time_total);
    INITSYM(ov_time_seek);
    INITSYM(ov_time_tell);
    INITSYM(ov_read);
-#endif
 
    return true;
 
@@ -312,7 +305,7 @@ static bool ogg_stream_seek(ALLEGRO_AUDIO_STREAM *stream, double time)
    if (time >= extra->loop_end)
       return false;
 #ifndef TREMOR
-   return (lib.ov_time_seek_lap(extra->vf, time) != -1);
+   return (lib.ov_time_seek(extra->vf, time) != -1);
 #else
    return lib.ov_time_seek(extra->vf, time*1000) != -1;
 #endif
@@ -400,15 +393,13 @@ static size_t ogg_stream_update(ALLEGRO_AUDIO_STREAM *stream, void *data,
    double btime = ((double)buf_size / ((double)word_size * (double)extra->vi->channels)) / rate;
    unsigned long read;
    
-   if (stream->spl.loop == _ALLEGRO_PLAYMODE_STREAM_ONEDIR) {
-      if (ctime + btime > extra->loop_end) {
-         const int frame_size = word_size * extra->vi->channels;
-         read_length = (extra->loop_end - ctime) * rate * (double)word_size * (double)extra->vi->channels;
-         if (read_length < 0)
-            return 0;
-         if (read_length % frame_size > 0) {
-           read_length += (frame_size - (read_length % frame_size));
-         }
+   if (stream->spl.loop != _ALLEGRO_PLAYMODE_STREAM_ONCE && ctime + btime > extra->loop_end) {
+      const int frame_size = word_size * extra->vi->channels;
+      read_length = (extra->loop_end - ctime) * rate * (double)word_size * (double)extra->vi->channels;
+      if (read_length < 0)
+         return 0;
+      if (read_length % frame_size > 0) {
+        read_length += (frame_size - (read_length % frame_size));
       }
    }
    while (pos < (unsigned long)read_length) {
@@ -532,5 +523,21 @@ ALLEGRO_AUDIO_STREAM *_al_load_ogg_vorbis_audio_stream_f(ALLEGRO_FILE *file,
    return stream;
 }
 
+
+bool _al_identify_ogg_vorbis(ALLEGRO_FILE *f)
+{
+   uint8_t x[8];
+   if (al_fread(f, x, 4) < 4)
+      return false;
+   if (memcmp(x, "OggS", 4) != 0)
+      return false;
+   if (!al_fseek(f, 23, ALLEGRO_SEEK_CUR))
+      return false;
+   if (al_fread(f, x, 8) < 8)
+      return false;
+   if (memcmp(x, "\x1E\x01vorbis", 8) == 0)
+      return true;
+   return false;
+}
 
 /* vim: set sts=3 sw=3 et: */

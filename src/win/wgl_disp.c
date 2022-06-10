@@ -980,7 +980,7 @@ static bool create_display_internals(ALLEGRO_DISPLAY_WGL *wgl_disp)
    /* Fill in the display settings for opengl major and minor versions...*/
    const int v = disp->ogl_extras->ogl_info.version;
    disp->extra_settings.settings[ALLEGRO_OPENGL_MAJOR_VERSION] = (v >> 24) & 0xFF;
-   disp->extra_settings.settings[ALLEGRO_OPENGL_MINOR_VERSION] = (v >> 16) & 0xFF;   
+   disp->extra_settings.settings[ALLEGRO_OPENGL_MINOR_VERSION] = (v >> 16) & 0xFF;
 
    /* Try to enable or disable vsync as requested */
    /* NOTE: my drivers claim I don't have WGL_EXT_swap_control
@@ -1168,7 +1168,6 @@ static void wgl_unset_current_display(ALLEGRO_DISPLAY *d)
    }
 }
 
-
 /*
  * The window must be created in the same thread that
  * runs the message loop.
@@ -1238,53 +1237,57 @@ static void display_thread_proc(void *arg)
    }
 
    if (disp->flags & ALLEGRO_FULLSCREEN_WINDOW) {
-      bool frameless = true;
-      _al_win_set_window_frameless(disp, win_disp->window, frameless);
+      _al_win_set_window_frameless(disp, win_disp->window, true);
    }
 
-   /* Yep, the following is really needed sometimes. */
-   /* ... Or is it now that we have dumped DInput? */
-   /* <rohannessian> Win98/2k/XP's window forground rules don't let us
-    * make our window the topmost window on launch. This causes issues on
-    * full-screen apps, as DInput loses input focus on them.
-    * We use this trick to force the window to be topmost, when switching
-    * to full-screen only. Note that this only works for Win98 and greater.
-    * Win95 will ignore our SystemParametersInfo() calls.
-    *
-    * See http://support.microsoft.com:80/support/kb/articles/Q97/9/25.asp
-    * for details.
-    */
    {
       DWORD lock_time;
       HWND wnd = win_disp->window;
 
+      if ((disp->flags & ALLEGRO_FULLSCREEN) == 0) {
+         ShowWindow(wnd, SW_SHOWNORMAL);
+         SetForegroundWindow(wnd);
+         UpdateWindow(wnd);
+      }
+      else {
+
+         /* Yep, the following is really needed sometimes. */
+         /* ... Or is it now that we have dumped DInput? */
+         /* <rohannessian> Win98/2k/XP's window foreground rules don't let us
+          * make our window the topmost window on launch. This causes issues on
+          * full-screen apps, as DInput loses input focus on them.
+          * We use this trick to force the window to be topmost, when switching
+          * to full-screen only. Note that this only works for Win98 and greater.
+          * Win95 will ignore our SystemParametersInfo() calls.
+          *
+          * See http://support.microsoft.com:80/support/kb/articles/Q97/9/25.asp
+          * for details.
+          */
+
 #define SPI_GETFOREGROUNDLOCKTIMEOUT 0x2000
 #define SPI_SETFOREGROUNDLOCKTIMEOUT 0x2001
-      if (disp->flags & ALLEGRO_FULLSCREEN) {
          SystemParametersInfo(SPI_GETFOREGROUNDLOCKTIMEOUT,
                0, (LPVOID)&lock_time, 0);
          SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT,
                0, (LPVOID)0, SPIF_SENDWININICHANGE | SPIF_UPDATEINIFILE);
-      }
 
-      ShowWindow(wnd, SW_SHOWNORMAL);
-      SetForegroundWindow(wnd);
-      /* In some rare cases, it doesn't seem to work without the loop. And we
-       * absolutely need this to succeed, else we trap the user in a
-       * fullscreen window without input.
-       */
-      while (GetForegroundWindow() != wnd) {
-         al_rest(0.01);
+         ShowWindow(wnd, SW_SHOWNORMAL);
          SetForegroundWindow(wnd);
-      }
-      UpdateWindow(wnd);
+         /* In some rare cases, it doesn't seem to work without the loop. And we
+          * absolutely need this to succeed, else we trap the user in a
+          * fullscreen window without input.
+          */
+         while (GetForegroundWindow() != wnd) {
+            al_rest(0.1);
+            SetForegroundWindow(wnd);
+         }
+         UpdateWindow(wnd);
 
-      if (disp->flags & ALLEGRO_FULLSCREEN) {
          SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT,
               0, (LPVOID)&lock_time, SPIF_SENDWININICHANGE | SPIF_UPDATEINIFILE);
-      }
 #undef SPI_GETFOREGROUNDLOCKTIMEOUT
 #undef SPI_SETFOREGROUNDLOCKTIMEOUT
+      }
    }
 
 #if 0

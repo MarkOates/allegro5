@@ -346,13 +346,11 @@ static size_t ogg_stream_update(ALLEGRO_AUDIO_STREAM *stream, void *data,
    double btime = ((double)buf_size / (word_size * channels)) / rate;
    long read;
 
-   if (stream->spl.loop == _ALLEGRO_PLAYMODE_STREAM_ONEDIR) {
-      if (ctime + btime > extra->loop_end) {
-         read_length = (extra->loop_end - ctime) * rate * word_size * channels;
-         if (read_length < 0)
-            return 0;
-         read_length += read_length % word_size;
-      }
+   if (stream->spl.loop != _ALLEGRO_PLAYMODE_STREAM_ONCE && ctime + btime > extra->loop_end) {
+      read_length = (extra->loop_end - ctime) * rate * word_size * channels;
+      if (read_length < 0)
+         return 0;
+      read_length += read_length % word_size;
    }
 
    buf_in_word= read_length/word_size;
@@ -468,5 +466,21 @@ ALLEGRO_AUDIO_STREAM *_al_load_ogg_opus_audio_stream_f(ALLEGRO_FILE *file,
    return stream;
 }
 
+
+bool _al_identify_ogg_opus(ALLEGRO_FILE *f)
+{
+   uint8_t x[10];
+   if (al_fread(f, x, 4) < 4)
+      return false;
+   if (memcmp(x, "OggS", 4) != 0)
+      return false;
+   if (!al_fseek(f, 22, ALLEGRO_SEEK_CUR))
+      return false;
+   if (al_fread(f, x, 10) < 10)
+      return false;
+   if (memcmp(x, "\x01\x13OpusHead", 10) == 0)
+      return true;
+   return false;
+}
 
 /* vim: set sts=3 sw=3 et: */

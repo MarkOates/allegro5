@@ -121,7 +121,9 @@ enum ALLEGRO_PLAYMODE
    ALLEGRO_PLAYMODE_LOOP   = 0x101,
    ALLEGRO_PLAYMODE_BIDIR  = 0x102,
    _ALLEGRO_PLAYMODE_STREAM_ONCE   = 0x103,   /* internal */
-   _ALLEGRO_PLAYMODE_STREAM_ONEDIR = 0x104    /* internal */
+   _ALLEGRO_PLAYMODE_STREAM_ONEDIR = 0x104,   /* internal */
+   ALLEGRO_PLAYMODE_LOOP_ONCE = 0x105,
+   _ALLEGRO_PLAYMODE_STREAM_LOOP_ONCE = 0x106,   /* internal */
 };
 
 
@@ -296,6 +298,8 @@ ALLEGRO_KCM_AUDIO_FUNC(ALLEGRO_EVENT_SOURCE *, al_get_audio_stream_event_source,
 
 #if defined(ALLEGRO_UNSTABLE) || defined(ALLEGRO_INTERNAL_UNSTABLE) || defined(ALLEGRO_KCM_AUDIO_SRC)
 ALLEGRO_KCM_AUDIO_FUNC(bool, al_set_audio_stream_channel_matrix, (ALLEGRO_AUDIO_STREAM *stream, const float *matrix));
+ALLEGRO_KCM_AUDIO_FUNC(ALLEGRO_AUDIO_STREAM *, al_play_audio_stream, (const char *filename));
+ALLEGRO_KCM_AUDIO_FUNC(ALLEGRO_AUDIO_STREAM *, al_play_audio_stream_f, (ALLEGRO_FILE *fp, const char *ident));
 #endif
 
 /* Mixer functions */
@@ -397,6 +401,9 @@ ALLEGRO_KCM_AUDIO_FUNC(bool, al_register_audio_stream_loader_f, (const char *ext
 	ALLEGRO_AUDIO_STREAM *(*stream_loader)(ALLEGRO_FILE *fp,
 	    size_t buffer_count, unsigned int samples)));
 
+ALLEGRO_KCM_AUDIO_FUNC(bool, al_register_sample_identifier, (const char *ext,
+	bool (*identifier)(ALLEGRO_FILE *fp)));
+
 ALLEGRO_KCM_AUDIO_FUNC(ALLEGRO_SAMPLE *, al_load_sample, (const char *filename));
 ALLEGRO_KCM_AUDIO_FUNC(bool, al_save_sample, (const char *filename,
 	ALLEGRO_SAMPLE *spl));
@@ -409,6 +416,8 @@ ALLEGRO_KCM_AUDIO_FUNC(bool, al_save_sample_f, (ALLEGRO_FILE* fp, const char *id
 ALLEGRO_KCM_AUDIO_FUNC(ALLEGRO_AUDIO_STREAM *, al_load_audio_stream_f, (ALLEGRO_FILE* fp, const char *ident,
 	size_t buffer_count, unsigned int samples));
 
+ALLEGRO_KCM_AUDIO_FUNC(char const *, al_identify_sample_f, (ALLEGRO_FILE *fp));
+ALLEGRO_KCM_AUDIO_FUNC(char const *, al_identify_sample, (char const *filename));
 
 #if defined(ALLEGRO_UNSTABLE) || defined(ALLEGRO_INTERNAL_UNSTABLE) || defined(ALLEGRO_KCM_AUDIO_SRC)
 

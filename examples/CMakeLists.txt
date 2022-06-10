@@ -63,6 +63,7 @@ set(DATA_IMAGES
     mysha256x256.png
     obp.jpg
     texture.tga
+    texture2.tga
     )
 
 set(DATA_TTF
@@ -80,8 +81,11 @@ set(DATA_SHADERS
     ex_prim_shader_pixel.hlsl
     ex_prim_shader_vertex.glsl
     ex_prim_shader_vertex.hlsl
+    ex_prim_wrap_pixel.glsl
+    ex_prim_wrap_pixel.hlsl
     ex_shader_multitex_pixel.glsl
     ex_shader_multitex_pixel.hlsl
+    ex_shader_palette_pixel.glsl
     ex_shader_pixel.glsl
     ex_shader_pixel.hlsl
     ex_shader_vertex.glsl
@@ -127,6 +131,7 @@ example(ex_clip ${FONT} ${COLOR})
 example(ex_clipboard ${IMAGE} ${FONT} ${DATA_IMAGES})
 example(ex_color ex_color.cpp ${NIHGUI} ${TTF} ${COLOR} DATA ${DATA_TTF})
 example(ex_color2 ex_color2.c ${FONT} ${COLOR} ${PRIM})
+example(ex_color_gradient ex_color_gradient.c ${TTF} ${COLOR} ${PRIM} DATA ${DATA_TTF})
 example(ex_compressed ${IMAGE} ${FONT} ${DATA_IMAGES})
 example(ex_convert CONSOLE ${IMAGE})
 example(ex_cpu ${FONT})
@@ -171,6 +176,7 @@ example(ex_polygon ${FONT} ${PRIM})
 example(ex_premulalpha ${FONT})
 example(ex_prim ${FONT} ${IMAGE} ${PRIM} ${DATA_IMAGES})
 example(ex_prim_shader ${PRIM} DATA ${DATA_SHADERS})
+example(ex_prim_wrap ${IMAGE} ${FONT} ${PRIM} ${DATA_IMAGES} ${DATA_SHADERS})
 example(ex_reparent ${IMAGE} ${PRIM} ${DATA_IMAGES})
 example(ex_resize ${PRIM})
 example(ex_resize2 ${IMAGE} ${FONT})
@@ -207,7 +213,7 @@ if(SUPPORT_OPENGL AND NOT SUPPORT_OPENGLES)
     example(ex_opengl_pixel_shader ${IMAGE})
 endif()
 if(SUPPORT_OPENGL AND NOT IPHONE AND NOT ALLEGRO_RASPBERRYPI)
-    example(ex_palette ${IMAGE} ${COLOR} ${DATA_IMAGES})
+    example(ex_palette ${IMAGE} ${COLOR} ${DATA_IMAGES} ${DATA_SHADERS})
 endif()
 
 example(ex_font ${FONT} ${IMAGE} ${DATA_IMAGES})
