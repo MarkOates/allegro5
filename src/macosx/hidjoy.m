@@ -58,6 +58,8 @@ typedef struct {
    int dpad_stick;
    int dpad_axis_vert;
    int dpad_axis_horiz;
+   int dpad_axis_vert_pos;
+   int dpad_axis_horiz_pos;
    long min[_AL_MAX_JOYSTICK_STICKS][_AL_MAX_JOYSTICK_AXES];
    long max[_AL_MAX_JOYSTICK_STICKS][_AL_MAX_JOYSTICK_AXES];
    CONFIG_STATE cfg_state;
@@ -275,6 +277,9 @@ static void add_elements(CFArrayRef elements, ALLEGRO_JOYSTICK_OSX *joy)
             joy->parent.info.stick[stick_index].axis[axis_index].name = str;
 
             joy->parent.info.stick[stick_index].num_axes = 2;
+
+            joy->dpad_axis_vert_pos = 0;
+            joy->dpad_axis_horiz_pos = 0;
          }
          else {
             sprintf(default_name, "Axis %i", axis_index);
@@ -456,8 +461,33 @@ static void value_callback(
 
    if (joy->dpad == elem){
       if (int_value >= 0 && int_value < MAX_HAT_DIRECTIONS) {
-         osx_joy_generate_axis_event(joy, joy->dpad_stick, joy->dpad_axis_vert,  (float)hat_mapping[int_value].axisV);
-         osx_joy_generate_axis_event(joy, joy->dpad_stick, joy->dpad_axis_horiz, (float)hat_mapping[int_value].axisH);
+         // vertical axis
+         // stick, axis, pos
+         //fprintf(stderr, "stick info\n  - axis: %i\n", joy->axes[stick][axis]);
+
+         int previous_v_axis_position = joy->dpad_axis_vert_pos;
+         int previous_h_axis_position = joy->dpad_axis_horiz_pos;
+
+         int new_v_axis_position = hat_mapping[int_value].axisV;
+         int new_h_axis_position = hat_mapping[int_value].axisH;
+
+         fprintf(stderr, " - { previous_axis_position: [ %i, %i ], new_axis_position: [ %i, %i ] }\n", previous_v_axis_position, previous_h_axis_position, new_v_axis_position, new_h_axis_position);
+
+         if (previous_v_axis_position != new_v_axis_position)
+         {
+           osx_joy_generate_axis_event(joy, joy->dpad_stick, joy->dpad_axis_vert,  (float)hat_mapping[int_value].axisV);
+           fprintf(stderr, " - event1: { stick: %i, axis_vert: %i, int_value: %i, hat_mapping[int_value].axisV: %i }\n", joy->dpad_stick, joy->dpad_axis_vert, int_value, hat_mapping[int_value].axisV);
+           joy->dpad_axis_vert_pos = new_v_axis_position;
+         }
+
+         // horizontal axis
+         if (previous_h_axis_position != new_h_axis_position)
+         {
+           osx_joy_generate_axis_event(joy, joy->dpad_stick, joy->dpad_axis_horiz, (float)hat_mapping[int_value].axisH);
+           fprintf(stderr, " - event2: { stick: %i, axis_horiz: %i, int_value: %i, hat_mapping[int_value].axisH: %i }\n", joy->dpad_stick, joy->dpad_axis_horiz, int_value, hat_mapping[int_value].axisH);
+           joy->dpad_axis_horiz_pos = new_h_axis_position;
+         }
+         fprintf(stderr, "---\n");
       }
       goto done;
    }
@@ -491,6 +521,7 @@ gen_axis_event:
       }
 
       osx_joy_generate_axis_event(joy, stick, axis, pos);
+      fprintf(stderr, "event1: { stick: %i, axis: %i, pos: %f }\n", stick, axis, pos);
    }
 
 done:
@@ -788,3 +819,4 @@ ALLEGRO_JOYSTICK_DRIVER* _al_osx_get_joystick_driver(void)
 /* c-basic-offset: 3      */
 /* indent-tabs-mode: nil  */
 /* End:                   */
+
