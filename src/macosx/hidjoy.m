@@ -407,15 +407,15 @@ struct HAT_MAPPING {
    int axisV;
    int axisH;
 } hat_mapping[MAX_HAT_DIRECTIONS] = {
-   { -1,  0 }, // 0
-   { -1,  1 }, // 1
-   {  0,  1 }, // 2
-   {  1,  1 }, // 3
-   {  1,  0 }, // 4
-   {  1, -1 }, // 5
-   {  0, -1 }, // 6
-   { -1, -1 }, // 7
-   {  0,  0 }, // 8
+   {  0,  0 }, // 0, neutral
+   { -1,  0 }, // 1, up
+   { -1,  1 }, // 2, up/right
+   {  0,  1 }, // 3, right
+   {  1,  1 }, // 4, down/right
+   {  1,  0 }, // 5, down
+   {  1, -1 }, // 6, down/left
+   {  0, -1 }, // 7, left
+   { -1, -1 }, // 8, up/left
 };
 
 static void value_callback(
