@@ -623,6 +623,20 @@ static void exit_joystick(void)
       NULL,
       NULL
    );
+
+   // Unregister from hotswapping changes
+   IOHIDManagerRegisterDeviceMatchingCallback(
+      hidManagerRef,
+      NULL,
+      NULL
+   );
+   IOHIDManagerRegisterDeviceRemovalCallback(
+      hidManagerRef,
+      NULL,
+      NULL
+   );
+
+   // Close our manager
    IOHIDManagerClose(
       hidManagerRef,
       kIOHIDOptionsTypeNone
