@@ -70,6 +70,7 @@ static _AL_VECTOR joysticks;
 static CONFIG_STATE new_joystick_state = JOY_STATE_ALIVE;
 static bool initialized = false;
 static ALLEGRO_MUTEX *add_mutex;
+static CFRunLoopRef run_loop_ref;
 
 ALLEGRO_DEBUG_CHANNEL("MacOSX")
 
@@ -561,9 +562,11 @@ static bool init_joystick(void)
       NULL
    );
 
+   run_loop_ref = CFRunLoopGetMain();
+
    IOHIDManagerScheduleWithRunLoop(
       hidManagerRef,
-      CFRunLoopGetMain(),
+      run_loop_ref,
       kCFRunLoopDefaultMode
    );
 
@@ -614,9 +617,10 @@ static void exit_joystick(void)
 
    IOHIDManagerUnscheduleFromRunLoop(
       hidManagerRef,
-      CFRunLoopGetCurrent(),
+      run_loop_ref,
       kCFRunLoopDefaultMode
    );
+
    // Unregister from value changes
    IOHIDManagerRegisterInputValueCallback(
       hidManagerRef,
