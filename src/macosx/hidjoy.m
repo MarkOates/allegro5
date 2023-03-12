@@ -586,6 +586,8 @@ static bool init_joystick(void)
    }
 
    // Wait for the devices to be enumerated
+   bool enumeration_succeeded = false;
+   int attempts_left = 100;
    int count;
    int size;
    do {
@@ -599,7 +601,21 @@ static bool init_joystick(void)
       al_lock_mutex(add_mutex);
       size = _al_vector_size(&joysticks);
       al_unlock_mutex(add_mutex);
-   } while (size < count);
+
+      if (size == count)
+      {
+        enumeration_succeeded = true;
+        break;
+      }
+
+      attempts_left--;
+   } while (attempts_left >= 0);
+
+   if (!enumeration_succeeded)
+   {
+      printf("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
+      ALLEGRO_ERROR("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
+   }
 
    new_joystick_state = JOY_STATE_BORN;
 
