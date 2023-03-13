@@ -635,6 +635,33 @@ static unschedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
 }
 
 
+static enumerate_and_create_initial_joystick_devices(IOHIDManagerRef manager)
+{
+   int i;
+
+   CFSetRef devices = IOHIDManagerCopyDevices(manager);
+   if (devices == NULL)
+   {
+      // There are no devices to enumerate
+      printf("There are no devices to enumerate.\n");
+   }
+   else
+   {
+      CFIndex num_devices = CFSetGetCount(devices);
+      IOHIDDeviceRef *device_arr = calloc(num_devices, sizeof(IOHIDDeviceRef));
+      CFSetGetValues(devices, (const void **) device_arr);
+
+      printf("Num devices: %d\n", num_devices);
+
+      for (i = 0; i < num_devices; i++) {
+         IOHIDDeviceRef dev = device_arr[i];
+         printf("Device: %p\n", dev);
+         add_joystick_device(dev, false);
+      }
+   }
+}
+
+
 /* init_joystick:
  *  Initializes the HID joystick driver.
  */
@@ -643,6 +670,7 @@ static bool init_joystick(void)
    add_mutex = al_create_mutex();
 
    hidManagerRef = create_hid_manager_for_joysticks();
+
    register_hid_manager_for_hotplugging_callbacks(hidManagerRef);
    register_hid_manager_for_value_change_callbacks(hidManagerRef);
    schedule_hid_manager_with_run_loop(hidManagerRef);
@@ -662,37 +690,39 @@ static bool init_joystick(void)
       return false;
    }
 
-   // Wait for the devices to be enumerated
-   bool enumeration_succeeded = false;
-   int attempts_left = 100;
-   int count;
-   int size;
-   do {
-      al_rest(0.001);
-      CFSetRef devices = IOHIDManagerCopyDevices(hidManagerRef);
-      if (devices == nil) {
-         break;
-      }
-      count = CFSetGetCount(devices);
-      CFRelease(devices);
-      al_lock_mutex(add_mutex);
-      size = _al_vector_size(&joysticks);
-      al_unlock_mutex(add_mutex);
+   enumerate_and_create_initial_joystick_devices(hidManagerRef);
 
-      if (size == count)
-      {
-        enumeration_succeeded = true;
-        break;
-      }
+   //// Wait for the devices to be enumerated
+   //bool enumeration_succeeded = false;
+   //int attempts_left = 100;
+   //int count;
+   //int size;
+   //do {
+      //al_rest(0.001);
+      //CFSetRef devices = IOHIDManagerCopyDevices(hidManagerRef);
+      //if (devices == nil) {
+         //break;
+      //}
+      //count = CFSetGetCount(devices);
+      //CFRelease(devices);
+      //al_lock_mutex(add_mutex);
+      //size = _al_vector_size(&joysticks);
+      //al_unlock_mutex(add_mutex);
 
-      attempts_left--;
-   } while (attempts_left >= 0);
+      //if (size == count)
+      //{
+        //enumeration_succeeded = true;
+        //break;
+      //}
 
-   if (!enumeration_succeeded)
-   {
-      printf("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
-      ALLEGRO_ERROR("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
-   }
+      //attempts_left--;
+   //} while (attempts_left >= 0);
+
+   //if (!enumeration_succeeded)
+   //{
+      //printf("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
+      //ALLEGRO_ERROR("Allegro was unable to eunmerate connected joysticks through the HID Manager.\n");
+   //}
 
    new_joystick_state = JOY_STATE_BORN;
 
