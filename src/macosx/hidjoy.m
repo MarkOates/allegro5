@@ -304,6 +304,15 @@ static void add_joystick_device(IOHIDDeviceRef ref, bool emit_reconfigure_event)
    al_lock_mutex(add_mutex);
 
    ALLEGRO_JOYSTICK_OSX *joy = find_joystick(ref);
+
+   if (joy)
+   {
+      // NOTE: This section is added to block multiple re-creations of a joystick from occurring.
+      // TODO: consider if it should be managed differently.
+      al_unlock_mutex(add_mutex);
+      return;
+   }
+
    if (joy == NULL) {
       joy = al_calloc(1, sizeof(ALLEGRO_JOYSTICK_OSX));
       joy->ident = ref;
