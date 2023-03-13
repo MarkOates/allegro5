@@ -498,19 +498,14 @@ done:
    _al_event_source_unlock(es);
 }
 
-/* init_joystick:
- *  Initializes the HID joystick driver.
- */
-static bool init_joystick(void)
+static IOHIDManagerRef create_hid_manager_for_joysticks()
 {
-   add_mutex = al_create_mutex();
-
-   hidManagerRef = IOHIDManagerCreate(
+   IOHIDManagerRef result = IOHIDManagerCreate(
       kCFAllocatorDefault,
       kIOHIDOptionsTypeNone
    );
 
-   if (CFGetTypeID(hidManagerRef) != IOHIDManagerGetTypeID()) {
+   if (CFGetTypeID(result) != IOHIDManagerGetTypeID()) {
       ALLEGRO_ERROR("Unable to create HID Manager\n");
       return false;
    }
@@ -535,13 +530,37 @@ static bool init_joystick(void)
    );
 
    IOHIDManagerSetDeviceMatchingMultiple(
-      hidManagerRef,
+      result,
       criteria
    );
 
    CFRelease(criteria0);
    CFRelease(criteria1);
    CFRelease(criteria);
+
+   return result;
+}
+
+
+static destroy_hid_manager_for_joysticks(IOHIDManagerRef manager)
+{
+   // Close our manager
+   IOHIDManagerClose(
+      manager,
+      kIOHIDOptionsTypeNone
+   );
+   CFRelease(manager);
+}
+
+
+/* init_joystick:
+ *  Initializes the HID joystick driver.
+ */
+static bool init_joystick(void)
+{
+   add_mutex = al_create_mutex();
+
+   hidManagerRef = create_hid_manager_for_joysticks();
 
    /* Register for plug/unplug notifications */
    IOHIDManagerRegisterDeviceMatchingCallback(
@@ -656,12 +675,7 @@ static void exit_joystick(void)
       NULL
    );
 
-   // Close our manager
-   IOHIDManagerClose(
-      hidManagerRef,
-      kIOHIDOptionsTypeNone
-   );
-   CFRelease(hidManagerRef);
+   destroy_hid_manager_for_joysticks(hidManagerRef);
 
    _al_vector_free(&joysticks);
 
