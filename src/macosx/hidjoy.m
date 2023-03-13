@@ -553,15 +553,8 @@ static destroy_hid_manager_for_joysticks(IOHIDManagerRef manager)
 }
 
 
-/* init_joystick:
- *  Initializes the HID joystick driver.
- */
-static bool init_joystick(void)
+static register_hid_manager_for_hotplugging_callbacks(IOHIDManagerRef manager)
 {
-   add_mutex = al_create_mutex();
-
-   hidManagerRef = create_hid_manager_for_joysticks();
-
    /* Register for plug/unplug notifications */
    IOHIDManagerRegisterDeviceMatchingCallback(
       hidManagerRef,
@@ -573,6 +566,35 @@ static bool init_joystick(void)
       device_remove_callback,
       NULL
    );
+}
+
+
+static unregister_hid_manager_for_hotplugging_callbacks(IOHIDManagerRef manager)
+{
+   // Unregister from hotplugging changes
+   IOHIDManagerRegisterDeviceMatchingCallback(
+      hidManagerRef,
+      NULL,
+      NULL
+   );
+   IOHIDManagerRegisterDeviceRemovalCallback(
+      hidManagerRef,
+      NULL,
+      NULL
+   );
+}
+
+
+/* init_joystick:
+ *  Initializes the HID joystick driver.
+ */
+static bool init_joystick(void)
+{
+   add_mutex = al_create_mutex();
+
+   hidManagerRef = create_hid_manager_for_joysticks();
+   register_hid_manager_for_hotplugging_callbacks(hidManagerRef);
+
 
    // Register for value changes
    IOHIDManagerRegisterInputValueCallback(
@@ -663,17 +685,7 @@ static void exit_joystick(void)
       NULL
    );
 
-   // Unregister from hotswapping changes
-   IOHIDManagerRegisterDeviceMatchingCallback(
-      hidManagerRef,
-      NULL,
-      NULL
-   );
-   IOHIDManagerRegisterDeviceRemovalCallback(
-      hidManagerRef,
-      NULL,
-      NULL
-   );
+   unregister_hid_manager_for_hotplugging_callbacks(hidManagerRef);
 
    destroy_hid_manager_for_joysticks(hidManagerRef);
 
