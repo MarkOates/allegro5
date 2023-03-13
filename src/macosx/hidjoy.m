@@ -585,6 +585,51 @@ static unregister_hid_manager_for_hotplugging_callbacks(IOHIDManagerRef manager)
 }
 
 
+static register_hid_manager_for_value_change_callbacks(IOHIDManagerRef manager)
+{
+   // Register for value changes
+   IOHIDManagerRegisterInputValueCallback(
+      hidManagerRef,
+      value_callback,
+      NULL
+   );
+}
+
+
+static unregister_hid_manager_for_value_change_callbacks(IOHIDManagerRef manager)
+{
+   // Unregister from value changes
+   IOHIDManagerRegisterInputValueCallback(
+      hidManagerRef,
+      NULL,
+      NULL
+   );
+}
+
+
+static schedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
+{
+   run_loop_ref = CFRunLoopGetMain();
+
+   IOHIDManagerScheduleWithRunLoop(
+      hidManagerRef,
+      run_loop_ref,
+      kCFRunLoopDefaultMode
+   );
+}
+
+
+static unschedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
+{
+   IOHIDManagerUnscheduleFromRunLoop(
+      hidManagerRef,
+      run_loop_ref,
+      kCFRunLoopDefaultMode
+   );
+
+}
+
+
 /* init_joystick:
  *  Initializes the HID joystick driver.
  */
@@ -594,22 +639,8 @@ static bool init_joystick(void)
 
    hidManagerRef = create_hid_manager_for_joysticks();
    register_hid_manager_for_hotplugging_callbacks(hidManagerRef);
-
-
-   // Register for value changes
-   IOHIDManagerRegisterInputValueCallback(
-      hidManagerRef,
-      value_callback,
-      NULL
-   );
-
-   run_loop_ref = CFRunLoopGetMain();
-
-   IOHIDManagerScheduleWithRunLoop(
-      hidManagerRef,
-      run_loop_ref,
-      kCFRunLoopDefaultMode
-   );
+   register_hid_manager_for_value_change_callbacks(hidManagerRef);
+   schedule_hid_manager_with_run_loop(hidManagerRef);
 
    _al_vector_init(&joysticks, sizeof(ALLEGRO_JOYSTICK_OSX *));
 
@@ -672,19 +703,8 @@ static void exit_joystick(void)
 {
    al_destroy_mutex(add_mutex);
 
-   IOHIDManagerUnscheduleFromRunLoop(
-      hidManagerRef,
-      run_loop_ref,
-      kCFRunLoopDefaultMode
-   );
-
-   // Unregister from value changes
-   IOHIDManagerRegisterInputValueCallback(
-      hidManagerRef,
-      NULL,
-      NULL
-   );
-
+   unschedule_hid_manager_with_run_loop(hidManagerRef);
+   unregister_hid_manager_for_value_change_callbacks(hidManagerRef);
    unregister_hid_manager_for_hotplugging_callbacks(hidManagerRef);
 
    destroy_hid_manager_for_joysticks(hidManagerRef);
