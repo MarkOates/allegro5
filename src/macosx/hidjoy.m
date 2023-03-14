@@ -307,8 +307,7 @@ static void add_joystick_device(IOHIDDeviceRef ref, bool emit_reconfigure_event)
 
    if (joy)
    {
-      // NOTE: This section is added to block multiple re-creations of a joystick from occurring.
-      // TODO: consider if it should be managed differently.
+      // Prevent multiple re-creations of a joystick if it alredy exists.
       al_unlock_mutex(add_mutex);
       return;
    }
