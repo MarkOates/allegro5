@@ -154,21 +154,7 @@ static const char *get_element_name(IOHIDElementRef elem, const char *default_na
       return default_name;
 }
 
-static void joy_null(ALLEGRO_JOYSTICK_OSX *joy)
-{
-   int i, j;
 
-   // NULL the parent
-   for (i = 0; i < _AL_MAX_JOYSTICK_BUTTONS; i++) {
-   	joy->parent.info.button[i].name = NULL;
-   }
-   for (i = 0; i < _AL_MAX_JOYSTICK_STICKS; i++) {
-   	joy->parent.info.stick[i].name = NULL;
-	for (j = 0; j < _AL_MAX_JOYSTICK_AXES; j++) {
-		joy->parent.info.stick[i].axis[j].name = NULL;
-	}
-   }
-}
 
 static void add_axis(ALLEGRO_JOYSTICK_OSX *joy, int stick_index, int axis_index, int min, int max, char *name, IOHIDElementRef elem)
 {
@@ -183,14 +169,27 @@ static void add_axis(ALLEGRO_JOYSTICK_OSX *joy, int stick_index, int axis_index,
    joy->axes[stick_index][axis_index] = elem;
 }
 
+
 static void add_elements(CFArrayRef elements, ALLEGRO_JOYSTICK_OSX *joy)
 {
-   int i;
+   int i, j;
    char default_name[100];
    int stick_class = -1;
    int axis_index = 0;
 
-   joy_null(joy);
+   // NULL the parent
+   for (i = 0; i < _AL_MAX_JOYSTICK_BUTTONS; i++)
+   {
+      joy->parent.info.button[i].name = NULL;
+   }
+   for (i = 0; i < _AL_MAX_JOYSTICK_STICKS; i++)
+   {
+      joy->parent.info.stick[i].name = NULL;
+
+      for (j = 0; j < _AL_MAX_JOYSTICK_AXES; j++) {
+         joy->parent.info.stick[i].axis[j].name = NULL;
+      }
+   }
 
    for (i = 0; i < CFArrayGetCount(elements); i++) {
       IOHIDElementRef elem = (IOHIDElementRef)CFArrayGetValueAtIndex(
@@ -728,7 +727,7 @@ static void exit_joystick(void)
 /* num_joysticks:
  *  Return number of active joysticks
  */
-static int num_joysticks(void)
+static int num_active_joysticks(void)
 {
    int i;
    int count = 0;
@@ -788,37 +787,75 @@ static void get_joystick_state(ALLEGRO_JOYSTICK *joy_, ALLEGRO_JOYSTICK_STATE *r
    _al_event_source_unlock(es);
 }
 
+
+static int num_joysticks()
+{
+   return (int)_al_vector_size(&joysticks);
+}
+
+
+static ALLEGRO_JOYSTICK_OSX *joystick_at(int i)
+{
+   return *(ALLEGRO_JOYSTICK_OSX **)_al_vector_ref(&joysticks, i);
+}
+
+
 static bool reconfigure_joysticks(void)
 {
    int i;
-   bool ret = false;
-   for (i = 0; i < (int)_al_vector_size(&joysticks); i++) {
-      ALLEGRO_JOYSTICK_OSX *joy = *(ALLEGRO_JOYSTICK_OSX **)_al_vector_ref(&joysticks, i);
-      if (joy->cfg_state == JOY_STATE_DYING) {
-         joy->cfg_state = JOY_STATE_UNUSED;
-         for (i = 0; i < _AL_MAX_JOYSTICK_BUTTONS; i++) {
-            al_free((char *)joy->parent.info.button[i].name);
-         }
-         for (i = 0; i < _AL_MAX_JOYSTICK_STICKS; i++) {
-            int j;
-            al_free(joy->parent.info.stick[i].name);
-            for (j = 0; j < _AL_MAX_JOYSTICK_AXES; j++) {
-               al_free(joy->parent.info.stick[i].axis[j].name);
-            }
-         }
-	      joy_null(joy);
-         memset(joy->buttons, 0, _AL_MAX_JOYSTICK_BUTTONS*sizeof(IOHIDElementRef));
-         memset(&joy->state, 0, sizeof(ALLEGRO_JOYSTICK_STATE));
-         joy->dpad=0;
+
+   for (i=0; i<num_joysticks(); i++)
+   {
+      ALLEGRO_JOYSTICK_OSX *joystick = joystick_at(i);
+
+      switch(joystick->cfg_state)
+      {
+         case JOY_STATE_DYING:
+           // The joystick has been disconnected by the OS, but the disconnection is not yet processed by Allegro
+
+           // Clear out the button names on the ALLEGRO_JOYSTICK* parent
+           for (i = 0; i < _AL_MAX_JOYSTICK_BUTTONS; i++)
+           {
+              al_free((char *)joystick->parent.info.button[i].name);
+              joystick->parent.info.button[i].name = NULL;
+           }
+
+           // Clear out the stick names on the ALLEGRO_JOYSTICK* parent
+           for (i = 0; i < _AL_MAX_JOYSTICK_STICKS; i++)
+           {
+              int j;
+              al_free(joystick->parent.info.stick[i].name);
+
+              for (j = 0; j < _AL_MAX_JOYSTICK_AXES; j++)
+              {
+                 al_free(joystick->parent.info.stick[i].axis[j].name);
+                 joystick->parent.info.stick[i].axis[j].name = NULL;
+              }
+           }
+
+           // Clear out the values on the ALLEGRO_JOYSTICK* parent
+           memset(joystick->buttons, 0, _AL_MAX_JOYSTICK_BUTTONS*sizeof(IOHIDElementRef));
+           memset(&joystick->state, 0, sizeof(ALLEGRO_JOYSTICK_STATE));
+           joystick->dpad=0;
+
+           // Set the state to "UNUSED", indicating that Allegro acknowledges and has processed its disconnection
+           joystick->cfg_state = JOY_STATE_UNUSED;
+         break;
+
+         case JOY_STATE_BORN:
+            // The joystick has been newly connected by the OS, but not yet acknowledged by Allegro
+
+            // Set the state to "ALIVE", indicating that Allegro acknowledges its disconnection
+            joystick->cfg_state = JOY_STATE_ALIVE;
+         break;
+
+         default:
+            // There are no other states that require processing during reconfiguration
+         break;
       }
-      else if (joy->cfg_state == JOY_STATE_BORN)
-         joy->cfg_state = JOY_STATE_ALIVE;
-      else
-         continue;
-      ret = true;
    }
 
-   return ret;
+   return true;
 }
 
 // FIXME!
@@ -844,7 +881,7 @@ ALLEGRO_JOYSTICK_DRIVER* _al_osx_get_joystick_driver_10_5(void)
       vt->init_joystick = init_joystick;
       vt->exit_joystick = exit_joystick;
       vt->reconfigure_joysticks = reconfigure_joysticks;
-      vt->num_joysticks = num_joysticks;
+      vt->num_joysticks = num_active_joysticks;
       vt->get_joystick = get_joystick;
       vt->release_joystick = release_joystick;
       vt->get_joystick_state = get_joystick_state;
