@@ -170,12 +170,18 @@ static void add_axis(ALLEGRO_JOYSTICK_OSX *joy, int stick_index, int axis_index,
 }
 
 
-static void add_elements(CFArrayRef elements, ALLEGRO_JOYSTICK_OSX *joy)
+static void populate_elements(ALLEGRO_JOYSTICK_OSX *joy)
 {
    int i, j;
    char default_name[100];
    int stick_class = -1;
    int axis_index = 0;
+
+   CFArrayRef elements = IOHIDDeviceCopyMatchingElements(
+      joy->ident,
+      NULL,
+      kIOHIDOptionsTypeNone
+   );
 
    // NULL the parent
    for (i = 0; i < _AL_MAX_JOYSTICK_BUTTONS; i++)
@@ -285,6 +291,8 @@ static void add_elements(CFArrayRef elements, ALLEGRO_JOYSTICK_OSX *joy)
          }
       }
    }
+
+   CFRelease(elements);
 }
 
 static void osx_joy_generate_configure_event(void)
@@ -319,16 +327,7 @@ static void add_joystick_device(IOHIDDeviceRef ref, bool emit_reconfigure_event)
    }
    joy->cfg_state = new_joystick_state;
 
-   CFArrayRef elements = IOHIDDeviceCopyMatchingElements(
-      ref,
-      NULL,
-      kIOHIDOptionsTypeNone
-   );
-
-   add_elements(elements, joy);
-
-   CFRelease(elements);
-
+   populate_elements(joy);
 
    al_unlock_mutex(add_mutex);
 
