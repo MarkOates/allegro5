@@ -67,7 +67,6 @@ typedef struct {
 
 static IOHIDManagerRef hidManagerRef;
 static _AL_VECTOR joysticks;
-static CONFIG_STATE new_joystick_state = JOY_STATE_ALIVE;
 static bool initialized = false;
 static ALLEGRO_MUTEX *add_mutex;
 static CFRunLoopRef run_loop_ref;
@@ -306,28 +305,46 @@ static void osx_joy_generate_configure_event(void)
    _al_generate_joystick_event(&event);
 }
 
+static ALLEGRO_JOYSTICK_OSX *create_new_joystick(IOHIDDeviceRef ref)
+{
+  ALLEGRO_JOYSTICK_OSX *result = al_calloc(1, sizeof(ALLEGRO_JOYSTICK_OSX));
+  result->ident = ref;
+  ALLEGRO_JOYSTICK_OSX **back = _al_vector_alloc_back(&joysticks);
+  *back = result;
+  return result;
+}
+
 static void add_joystick_device(IOHIDDeviceRef ref, bool emit_reconfigure_event)
 {
    al_lock_mutex(add_mutex);
 
    ALLEGRO_JOYSTICK_OSX *joy = find_joystick(ref);
 
-   if (joy)
+   if (!joy) joy = create_new_joystick(ref);
+
+   switch(joy->cfg_state)
    {
-      // Prevent multiple re-creations of a joystick if it alredy exists.
-      al_unlock_mutex(add_mutex);
-      return;
-   }
+      case JOY_STATE_UNUSED:
+         // Setup the elements on this joystick
+         populate_elements(joy);
+         joy->cfg_state = JOY_STATE_BORN;
+      break;
 
-   if (joy == NULL) {
-      joy = al_calloc(1, sizeof(ALLEGRO_JOYSTICK_OSX));
-      joy->ident = ref;
-      ALLEGRO_JOYSTICK_OSX **back = _al_vector_alloc_back(&joysticks);
-      *back = joy;
-   }
-   joy->cfg_state = new_joystick_state;
+      case JOY_STATE_BORN:
+         // Joystick already exists, but an al_configure_joystick has not been called
+         // since it was last disconnected and reconnected.
+      break;
 
-   populate_elements(joy);
+      case JOY_STATE_ALIVE:
+        // Joystick already exists and is active.
+      break;
+
+      case JOY_STATE_DYING:
+         // The device was disconnected, but became reconnected before
+         // al_configure_joystick was called.
+         joy->cfg_state = JOY_STATE_BORN;
+      break;
+   }
 
    al_unlock_mutex(add_mutex);
 
@@ -618,7 +635,7 @@ static unregister_hid_manager_for_value_change_callbacks(IOHIDManagerRef manager
 }
 
 
-static schedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
+static void schedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
 {
    run_loop_ref = CFRunLoopGetMain();
 
@@ -630,7 +647,7 @@ static schedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
 }
 
 
-static unschedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
+static void unschedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
 {
    IOHIDManagerUnscheduleFromRunLoop(
       hidManagerRef,
@@ -641,6 +658,19 @@ static unschedule_hid_manager_with_run_loop(IOHIDManagerRef manager)
 }
 
 
+static bool open_hid_manager(IOHIDManagerRef manager)
+{
+   al_lock_mutex(add_mutex); // I'm not sure what this mutex is needed for
+
+   IOReturn ret = IOHIDManagerOpen(hidManagerRef, kIOHIDOptionsTypeSeizeDevice);
+
+   al_unlock_mutex(add_mutex); // I'm not sure what this mutex is needed for
+
+   return (ret == kIOReturnSuccess);
+}
+
+
+
 static enumerate_and_create_initial_joystick_devices(IOHIDManagerRef manager)
 {
    int i;
@@ -649,7 +679,6 @@ static enumerate_and_create_initial_joystick_devices(IOHIDManagerRef manager)
    if (devices == NULL)
    {
       // There are no devices to enumerate
-      printf("There are no devices to enumerate.\n");
    }
    else
    {
@@ -673,33 +702,25 @@ static enumerate_and_create_initial_joystick_devices(IOHIDManagerRef manager)
  */
 static bool init_joystick(void)
 {
+   // Create our mutex
    add_mutex = al_create_mutex();
 
-   hidManagerRef = create_hid_manager_for_joysticks();
+   // Initialize our internal list of joysticks
+   _al_vector_init(&joysticks, sizeof(ALLEGRO_JOYSTICK_OSX *));
 
+   // Create our HID device manager
+   hidManagerRef = create_hid_manager_for_joysticks();
    register_hid_manager_for_hotplugging_callbacks(hidManagerRef);
    register_hid_manager_for_value_change_callbacks(hidManagerRef);
    schedule_hid_manager_with_run_loop(hidManagerRef);
-
-   _al_vector_init(&joysticks, sizeof(ALLEGRO_JOYSTICK_OSX *));
-
-   al_lock_mutex(add_mutex);
-
-   IOReturn ret = IOHIDManagerOpen(
-      hidManagerRef,
-      kIOHIDOptionsTypeSeizeDevice
-   );
-
-   al_unlock_mutex(add_mutex);
-
-   if (ret != kIOReturnSuccess) {
+   if (!open_hid_manager(hidManagerRef))
+   {
+      ALLEGRO_ERROR("Allegro was unable to open an IOHIDManager while initializing joysticks.\n");
       return false;
    }
-
    enumerate_and_create_initial_joystick_devices(hidManagerRef);
 
-   new_joystick_state = JOY_STATE_BORN;
-
+   // Mark initialized as true
    initialized = true;
 
    return true;
@@ -842,9 +863,9 @@ static bool reconfigure_joysticks(void)
          break;
 
          case JOY_STATE_BORN:
-            // The joystick has been newly connected by the OS, but not yet acknowledged by Allegro
+            // The joystick has newly connected to the OS, but has not yet processed by Allegro
 
-            // Set the state to "ALIVE", indicating that Allegro acknowledges its disconnection
+            // Set the state to "ALIVE", indicating that Allegro has processed its disconnection
             joystick->cfg_state = JOY_STATE_ALIVE;
          break;
 
