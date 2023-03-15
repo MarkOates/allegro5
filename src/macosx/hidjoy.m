@@ -40,7 +40,7 @@
 typedef enum {
    JOY_STATE_UNUSED,
    JOY_STATE_BORN,
-   JOY_STATE_ALIVE,
+   JOY_STATE_ACTIVE,
    JOY_STATE_DYING
 } CONFIG_STATE;
 
@@ -335,7 +335,7 @@ static void add_joystick_device(IOHIDDeviceRef ref, bool emit_reconfigure_event)
          // since it was last disconnected and reconnected.
       break;
 
-      case JOY_STATE_ALIVE:
+      case JOY_STATE_ACTIVE:
         // Joystick already exists and is active.
       break;
 
@@ -753,7 +753,7 @@ static int num_active_joysticks(void)
    int count = 0;
    for (i = 0; i < (int)_al_vector_size(&joysticks); i++) {
       ALLEGRO_JOYSTICK_OSX *joy = *(ALLEGRO_JOYSTICK_OSX **)_al_vector_ref(&joysticks, i);
-      if (joy->config_state == JOY_STATE_ALIVE) {
+      if (joy->config_state == JOY_STATE_ACTIVE) {
          count++;
       }
    }
@@ -772,7 +772,7 @@ static ALLEGRO_JOYSTICK* get_joystick(int index)
    int count = 0;
    for (i = 0; i < (int)_al_vector_size(&joysticks); i++) {
       ALLEGRO_JOYSTICK_OSX *joy = *(ALLEGRO_JOYSTICK_OSX **)_al_vector_ref(&joysticks, i);
-      if (joy->config_state == JOY_STATE_ALIVE ||
+      if (joy->config_state == JOY_STATE_ACTIVE ||
          joy->config_state == JOY_STATE_DYING) {
             if (count == index) {
                return (ALLEGRO_JOYSTICK *)joy;
@@ -865,8 +865,8 @@ static bool reconfigure_joysticks(void)
          case JOY_STATE_BORN:
             // The joystick has newly connected to the OS, but has not yet processed by Allegro
 
-            // Set the state to "ALIVE", indicating that Allegro has processed its disconnection
-            joystick->config_state = JOY_STATE_ALIVE;
+            // Set the state to "ACTIVE", indicating that Allegro has processed its disconnection
+            joystick->config_state = JOY_STATE_ACTIVE;
          break;
 
          default:
@@ -888,7 +888,7 @@ static const char *get_joystick_name(ALLEGRO_JOYSTICK *joy_)
 static bool get_joystick_active(ALLEGRO_JOYSTICK *joy_)
 {
    ALLEGRO_JOYSTICK_OSX *joy = (ALLEGRO_JOYSTICK_OSX *)joy_;
-   return joy->config_state == JOY_STATE_ALIVE || joy->config_state == JOY_STATE_DYING;
+   return joy->config_state == JOY_STATE_ACTIVE || joy->config_state == JOY_STATE_DYING;
 }
 
 ALLEGRO_JOYSTICK_DRIVER* _al_osx_get_joystick_driver_10_5(void)
